@@ -529,7 +529,12 @@ function onDrop(e) {
 }
 function handleFileSelect(e) { const f=e.target.files[0]; if(f) processImageFile(f); }
 
-async function convertAnyImageToWebP(file, quality = 0.82) {
+async function convertAnyImageToWebP(file, opts = {}) {
+  const targetBytes = opts.targetBytes || 9 * 1024 * 1024;
+  const maxDimension = opts.maxDimension || 3800;
+  const minDimension = 1000;
+  let quality = typeof opts.quality === 'number' ? opts.quality : 0.82;
+  const minQuality = 0.45;
   const objectUrl = URL.createObjectURL(file);
   try {
     let bitmap;
@@ -546,25 +551,54 @@ async function convertAnyImageToWebP(file, quality = 0.82) {
       bitmap = img;
     }
 
+    const originalW = bitmap.width;
+    const originalH = bitmap.height;
+    const largestSide = Math.max(originalW, originalH);
+    const firstScale = largestSide > maxDimension ? (maxDimension / largestSide) : 1;
+
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    let drawW = Math.max(1, Math.round(originalW * firstScale));
+    let drawH = Math.max(1, Math.round(originalH * firstScale));
+    canvas.width = drawW;
+    canvas.height = drawH;
     const ctx = canvas.getContext('2d', { alpha: true });
     if (!ctx) throw new Error('No se pudo crear el canvas de conversión');
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
-    const webpBlob = await new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          reject(new Error('El navegador no pudo convertir la imagen a WebP'));
-          return;
-        }
-        resolve(blob);
-      }, 'image/webp', quality);
-    });
+    const renderBlob = async (w, h, q) => {
+      canvas.width = w;
+      canvas.height = h;
+      ctx.clearRect(0, 0, w, h);
+      ctx.drawImage(bitmap, 0, 0, w, h);
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('El navegador no pudo convertir la imagen a WebP'));
+            return;
+          }
+          resolve(blob);
+        }, 'image/webp', q);
+      });
+    };
+
+    let webpBlob = await renderBlob(drawW, drawH, quality);
+
+    while (webpBlob.size > targetBytes && quality > minQuality) {
+      quality = Math.max(minQuality, quality - 0.08);
+      webpBlob = await renderBlob(drawW, drawH, quality);
+      if (quality === minQuality) break;
+    }
+
+    while (webpBlob.size > targetBytes && Math.max(drawW, drawH) > minDimension) {
+      drawW = Math.max(1, Math.round(drawW * 0.85));
+      drawH = Math.max(1, Math.round(drawH * 0.85));
+      webpBlob = await renderBlob(drawW, drawH, quality);
+    }
 
     return webpBlob;
   } finally {
+    if (bitmap && typeof bitmap.close === 'function') bitmap.close();
     URL.revokeObjectURL(objectUrl);
   }
 }
@@ -583,7 +617,11 @@ async function processImageFile(file) {
     return;
   }
 
-  const cloudConfigured = window.CLOUDINARY_CLOUD_NAME !== 'TU_CLOUD_NAME';
+  const cloudConfigured =
+    !!window.CLOUDINARY_CLOUD_NAME &&
+    !!window.CLOUDINARY_UPLOAD_PRESET &&
+    window.CLOUDINARY_CLOUD_NAME !== 'dlvkvftgv' &&
+    window.CLOUDINARY_UPLOAD_PRESET !== 'atelier';
 
   if (!cloudConfigured) {
     // Modo fallback: guarda el WebP convertido en base64 local.
@@ -611,7 +649,16 @@ async function processImageFile(file) {
     fd.append('upload_preset', window.CLOUDINARY_UPLOAD_PRESET);
     const res = await fetch(`https://api.cloudinary.com/v1_1/${window.CLOUDINARY_CLOUD_NAME}/image/upload`, {method:'POST',body:fd});
     clearInterval(interval); fill.style.width='100%';
-    if (!res.ok) throw new Error('Cloudinary error ' + res.status);
+    if (!res.ok) {
+      let reason = '';
+      try {
+        const errJson = await res.json();
+        reason = errJson?.error?.message || JSON.stringify(errJson);
+      } catch (_) {
+        reason = await res.text();
+      }
+      throw new Error(`Cloudinary ${res.status}: ${reason || 'Error de subida'}`);
+    }
     const data = await res.json();
     // URL optimizada: fuerza WebP + calidad automática + ancho máximo de 800px.
     pendingImageUrl = data.secure_url.replace('/upload/', '/upload/f_webp,q_auto,w_800/');
@@ -619,7 +666,16 @@ async function processImageFile(file) {
     showToast('✓ Imagen subida a Cloudinary ☁️','success');
   } catch(err) {
     clearInterval(interval);
-    showToast('Error subiendo imagen. Verifica Cloud Name y Upload Preset.','error');
+    const msg = (err && err.message ? err.message : 'Error desconocido').slice(0, 120);
+    showToast(`Error subiendo imagen: ${msg}`,'error');
+    // Fallback para no bloquear la carga del producto si Cloudinary falla.
+    const reader = new FileReader();
+    reader.onload = e => {
+      pendingImageUrl = e.target.result;
+      const prev = $p('previewImg'); prev.src=pendingImageUrl; prev.style.display='block';
+      showToast('Usando imagen local temporal. Revisa Cloudinary.','success');
+    };
+    reader.readAsDataURL(webpBlob);
     console.error('Cloudinary error:', err);
   } finally {
     zone.classList.remove('uploading'); fill.style.width='0%';
