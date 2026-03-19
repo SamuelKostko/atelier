@@ -225,13 +225,9 @@
 
 <nav>
   <div class="nav-logo">ATELIER<span>MAR</span></div>
-  <ul class="nav-links">
-    <li><a href="#catalogo">Catálogo</a></li>
-    <li><a href="#catalogo">Colecciones</a></li>
-    <li><a href="#">Contacto</a></li>
-  </ul>
+
   <div class="nav-right">
-    <button class="admin-btn" onclick="openAdmin()">⚙️ Admin</button>
+    <button class="admin-btn" onclick="openAdmin()">⚙️</button>
     <button class="cart-btn" onclick="toggleCart()">
       🛒 Carrito <div class="cart-count" id="cartCount">0</div>
     </button>
@@ -336,8 +332,8 @@
 <div class="toast" id="toast"></div>
 
 <footer>
-  <p><strong>AtelierMar</strong> — Trajes de Baño &amp; Más · Página Desarrollada por KostkoDeveloper</p>
-  <p style="margin-top:.4rem;">¿Preguntas? Escríbenos al WhatsApp</p>
+  <p><strong>AtelierMar</strong> — Trajes de Baño &amp; Más · Desarrollado por KostkoDeveloper</p>
+  <a href="https://wa.me/584120181385" target="_blank" style="margin-top:.4rem;">¿Preguntas? Escríbenos al WhatsApp</a>
 </footer>
 
 <script>
@@ -620,8 +616,8 @@ async function processImageFile(file) {
   const cloudConfigured =
     !!window.CLOUDINARY_CLOUD_NAME &&
     !!window.CLOUDINARY_UPLOAD_PRESET &&
-    window.CLOUDINARY_CLOUD_NAME !== 'dlvkvftgv' &&
-    window.CLOUDINARY_UPLOAD_PRESET !== 'atelier';
+    window.CLOUDINARY_CLOUD_NAME !== 'TU_CLOUD_NAME' &&
+    window.CLOUDINARY_UPLOAD_PRESET !== 'TU_UPLOAD_PRESET';
 
   if (!cloudConfigured) {
     // Modo fallback: guarda el WebP convertido en base64 local.
