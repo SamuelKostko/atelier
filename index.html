@@ -908,11 +908,10 @@ function onDrop(e) {
 function handleFileSelect(e) { const f=e.target.files[0]; if(f) processImageFile(f); }
 
 async function convertAnyImageToWebP(file, opts = {}) {
-  const targetBytes = opts.targetBytes || 9 * 1024 * 1024;
-  const maxDimension = opts.maxDimension || 3800;
-  const minDimension = 1000;
-  let quality = typeof opts.quality === 'number' ? opts.quality : 0.82;
-  const minQuality = 0.45;
+  const targetBytes = opts.targetBytes || 14 * 1024 * 1024; // antes 9 MB
+  const maxDimension = opts.maxDimension || 4200; // antes 3800
+  let quality = typeof opts.quality === 'number' ? opts.quality : 0.92; // antes 0.82
+  const minQuality = 0.70; // antes 0.45
   const objectUrl = URL.createObjectURL(file);
   let bitmap = null;
   try {
@@ -1046,7 +1045,7 @@ async function processImageFile(file) {
     }
     const data = await res.json();
     // URL optimizada: fuerza WebP + calidad automática + ancho máximo de 800px.
-    pendingImageUrl = data.secure_url.replace('/upload/', '/upload/f_webp,q_auto,w_800/');
+    pendingImageUrl = data.secure_url.replace('/upload/', '/upload/f_webp,q_88,w_1400/');
     const prev = $p('previewImg'); prev.src=pendingImageUrl; prev.style.display='block';
     showToast('✓ Imagen subida a Cloudinary ☁️','success');
   } catch(err) {
