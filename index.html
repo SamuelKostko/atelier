@@ -428,6 +428,123 @@
       padding-right: 14px;
     }
 
+    .cart-sidebar {
+      width: 100%;
+      right: -100%;
+      height: 100dvh;
+      border-radius: 16px 16px 0 0;
+    }
+
+    .cart-header {
+      padding-top: calc(12px + env(safe-area-inset-top));
+      padding-bottom: 12px;
+      position: sticky;
+      top: 0;
+      background: #fff;
+      z-index: 2;
+    }
+
+    .cart-header h3 {
+      font-size: 1.15rem;
+    }
+
+    .cart-close {
+      width: 34px;
+      height: 34px;
+      font-size: 1rem;
+    }
+
+    .cart-items {
+      padding-top: .5rem;
+      padding-bottom: 1rem;
+      overscroll-behavior: contain;
+    }
+
+    .cart-item {
+      display: grid;
+      grid-template-columns: 62px 1fr auto;
+      grid-template-areas:
+        "img info remove"
+        "img qty price";
+      align-items: start;
+      column-gap: .7rem;
+      row-gap: .35rem;
+      padding: .85rem 0;
+    }
+
+    .cart-item-img {
+      grid-area: img;
+      width: 62px;
+      height: 72px;
+      border-radius: 9px;
+    }
+
+    .cart-item-info {
+      grid-area: info;
+      min-width: 0;
+    }
+
+    .cart-item-name {
+      font-size: .9rem;
+      line-height: 1.25;
+      margin-bottom: .15rem;
+    }
+
+    .cart-item-detail {
+      font-size: .75rem;
+      line-height: 1.35;
+      margin-bottom: .35rem;
+      white-space: normal;
+      overflow-wrap: anywhere;
+    }
+
+    .cart-item-qty {
+      grid-area: qty;
+      gap: .45rem;
+    }
+
+    .qty-btn {
+      width: 28px;
+      height: 28px;
+      font-size: .95rem;
+    }
+
+    .qty-num {
+      min-width: 18px;
+      font-size: .9rem;
+    }
+
+    .cart-item-price {
+      grid-area: price;
+      align-self: end;
+      justify-self: end;
+      font-size: .95rem;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .remove-item {
+      grid-area: remove;
+      justify-self: end;
+      font-size: 1rem;
+      padding: 2px;
+    }
+
+    .cart-footer {
+      position: sticky;
+      bottom: 0;
+      background: #fff;
+      border-top: 1px solid #ececec;
+      box-shadow: 0 -8px 20px rgba(0,0,0,.06);
+      padding-top: .9rem;
+      padding-bottom: calc(.9rem + env(safe-area-inset-bottom));
+    }
+
+    .cart-total {
+      font-size: 1rem;
+      margin-bottom: .8rem;
+    }
+
     .whatsapp-btn {
       padding: 14px;
       font-size: .95rem;
@@ -797,11 +914,17 @@ async function convertAnyImageToWebP(file, opts = {}) {
   let quality = typeof opts.quality === 'number' ? opts.quality : 0.82;
   const minQuality = 0.45;
   const objectUrl = URL.createObjectURL(file);
+  let bitmap = null;
   try {
-    let bitmap;
     if (window.createImageBitmap) {
-      bitmap = await createImageBitmap(file);
-    } else {
+      try {
+        bitmap = await createImageBitmap(file);
+      } catch (_) {
+        // Algunos formatos/navegadores fallan con createImageBitmap; fallback a Image.
+      }
+    }
+
+    if (!bitmap) {
       const img = new Image();
       img.decoding = 'async';
       img.src = objectUrl;
@@ -873,9 +996,10 @@ async function processImageFile(file) {
   try {
     webpBlob = await convertAnyImageToWebP(file);
   } catch (err) {
-    showToast('No se pudo convertir la imagen a WebP','error');
+    // Si falla la conversión, no se bloquea la carga: se usa el archivo original.
+    webpBlob = file;
+    showToast('No se pudo convertir a WebP, se subira la imagen original','error');
     console.error('WebP conversion error:', err);
-    return;
   }
 
   const cloudConfigured =
